@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de investigación · Dengue en La Libertad</title>
+<style>
+:root{
+  --bg:#eef1f6; --band:#e2e7ef; --surface:#ffffff; --border:#d2d9e5; --text:#0f172a; --muted:#566275;
+  --wire:#8a97ad;
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 6px 18px -8px rgba(15,23,42,.20);
+  --shadow-hi:0 2px 4px rgba(15,23,42,.08),0 16px 34px -12px rgba(15,23,42,.34);
+  --c-contexto:#64748b; --c-problema:#e11d48; --c-pregunta:#2563eb; --c-tema:#4f46e5; --c-vi:#d97706;
+  --c-modelo:#0d9488; --c-vd:#7c3aed; --c-objetivo:#059669; --c-resultado:#ea580c;
+  --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
+  --drawer-w:clamp(320px,29vw,440px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0b1019; --band:#121a28; --surface:#172132; --border:#2a3850; --text:#e7ecf4; --muted:#9ba8bc;
+    --wire:#5f6f8a;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 22px -10px rgba(0,0,0,.7);
+    --shadow-hi:0 2px 4px rgba(0,0,0,.5),0 18px 38px -12px rgba(0,0,0,.8);
+    --c-contexto:#94a3b8; --c-problema:#fb7185; --c-pregunta:#60a5fa; --c-tema:#818cf8; --c-vi:#fbbf24;
+    --c-modelo:#2dd4bf; --c-vd:#a78bfa; --c-objetivo:#34d399; --c-resultado:#fb923c;
+    --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    color-scheme:dark;
+  }
+}
+.cat-contexto{--accent:var(--c-contexto)} .cat-problema{--accent:var(--c-problema)}
+.cat-pregunta{--accent:var(--c-pregunta)} .cat-tema{--accent:var(--c-tema)}
+.cat-vi{--accent:var(--c-vi)} .cat-modelo{--accent:var(--c-modelo)} .cat-vd{--accent:var(--c-vd)}
+.cat-objetivo{--accent:var(--c-objetivo)} .cat-resultado{--accent:var(--c-resultado)}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);color:var(--text);overflow:hidden;
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- Escenario a pantalla completa ---------- */
+.stage{position:fixed;inset:0;padding:16px 18px 30px;transition:padding-right .28s ease}
+body.is-open .stage{padding-right:calc(var(--drawer-w) + 34px)}
+.wrap{position:relative;width:100%;height:100%;container-type:size}
+.diagram{
+  --gx:clamp(26px,2.6cqw,60px); --gy:clamp(44px,7cqh,84px);
+  position:relative;height:100%;display:grid;
+  font-size:clamp(11px,calc(.5cqw + .7cqh),24px);
+  grid-template-columns:2.2em repeat(4,minmax(0,1fr));
+  grid-template-rows:.8fr var(--gy) 1.65fr var(--gy) 1.15fr;
+  column-gap:var(--gx);
+}
+.band{grid-column:1/-1;margin:0 -12px;background:var(--band);border-radius:18px}
+.band-1{grid-row:1}.band-2{grid-row:3}.band-3{grid-row:5}
+.band-label{
+  grid-column:1;align-self:center;justify-self:center;z-index:2;
+  writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;
+  font-size:max(10px,.72em);font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+}
+.band-label b{color:var(--text);margin-inline-start:.8em}
+.bl-1{grid-row:1}.bl-2{grid-row:3}.bl-3{grid-row:5}
+
+.cell{margin-block:.9em}
+.p-area{grid-column:2;grid-row:1}.p-problema{grid-column:3;grid-row:1}
+.p-pregunta{grid-column:4;grid-row:1}.p-tema{grid-column:5;grid-row:1}
+.p-gcomp{grid-column:2;grid-row:3}.p-vi{grid-column:3;grid-row:3}
+.p-gnn{grid-column:4;grid-row:3}.p-vd{grid-column:5;grid-row:3}
+.p-objgen{grid-column:2;grid-row:5}.p-goe{grid-column:3/5;grid-row:5}.p-alerta{grid-column:5;grid-row:5}
+
+/* ---------- Bloques ---------- */
+.block{
+  position:relative;z-index:2;min-width:0;min-height:0;
+  display:flex;flex-direction:column;justify-content:center;gap:.28em;
+  padding:.7em 1em .7em 1.25em;text-align:left;font:inherit;color:inherit;
+  background:var(--surface);border:1px solid var(--border);border-radius:.85em;box-shadow:var(--shadow);
+  cursor:pointer;overflow:hidden;container-type:size;
+  transition:transform .18s ease,box-shadow .18s ease,opacity .22s ease,border-color .18s ease;
+}
+.block::before{content:"";position:absolute;left:0;top:0;bottom:0;width:.3em;background:var(--accent)}
+.block:hover{transform:translateY(-2px);box-shadow:var(--shadow-hi);border-color:color-mix(in srgb,var(--accent) 55%,var(--border))}
+.block:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.block.key{background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-color:color-mix(in srgb,var(--accent) 38%,var(--border))}
+.eyebrow{font-size:max(10px,.72em);font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);line-height:1.25}
+.title{font-size:1.2em;font-weight:650;line-height:1.2;text-wrap:balance}
+.tall .title{font-size:1.42em}
+.sub{font-size:.88em;color:var(--muted);line-height:1.3}
+.viz{margin-top:.55em}
+.block.fit-1 .viz,.block.fit-2 .sub,.block.fit-3 .eyebrow{display:none}
+
+/* mini visuales */
+.viz-tags{display:flex;flex-wrap:wrap;gap:.35em}
+.viz-tags span{font-size:max(10px,.72em);padding:.25em .6em;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent);font-weight:600}
+.viz svg{display:block;width:100%;max-width:13em;height:3.1em}
+.viz .n{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+.viz .n.hot{fill:var(--accent)}
+.viz .e{stroke:var(--accent);stroke-width:1.6;opacity:.55}
+.viz .bar{fill:var(--accent);opacity:.75}
+.viz-risk{display:flex;gap:.35em}
+.viz-risk span{flex:1;font-size:max(10px,.72em);font-weight:650;text-align:center;padding:.3em 0;border-radius:.4em;color:#fff}
+.viz-risk .r1{background:var(--ok)}.viz-risk .r2{background:var(--warn)}.viz-risk .r3{background:var(--bad)}
+
+/* ---------- Grupos ---------- */
+.group{
+  position:relative;z-index:2;min-height:0;
+  border:1.5px dashed color-mix(in srgb,var(--accent) 55%,transparent);border-radius:1em;
+  background:color-mix(in srgb,var(--accent) 5%,transparent);
+  padding:1.9em .6em .6em;display:flex;flex-direction:column;gap:.5em;
+}
+.group-label{position:absolute;top:.55em;left:.95em;font-size:max(10px,.7em);font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+.group .block{flex:1 1 0}
+.group.grid2{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+
+/* ---------- Conexiones ---------- */
+.wires{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible}
+.wire{transition:opacity .22s ease}
+.wire .line{fill:none;stroke:var(--wire);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.wire.dashed .line{stroke-dasharray:6 5}
+.wire .head{fill:var(--wire)}
+.wire .lbl rect{fill:var(--bg)}
+.wire .lbl text{fill:var(--muted);font-weight:600}
+body.is-open .wire{opacity:.2}
+body.is-open .wire.hi{opacity:1}
+.wire.hi .line{stroke:var(--hi);stroke-width:2.4}
+.wire.hi .head{fill:var(--hi)}
+.wire.hi .lbl text{fill:var(--hi)}
+
+/* ---------- Estado de selección ---------- */
+body.is-open .block:not(.is-sel):not(.is-rel){opacity:.36}
+.block.is-sel{outline:2.5px solid var(--accent);outline-offset:3px;box-shadow:var(--shadow-hi)}
+.block.is-rel{border-color:color-mix(in srgb,var(--accent) 60%,var(--border))}
+
+/* ---------- Panel de resumen ---------- */
+.drawer{
+  position:fixed;top:16px;right:18px;bottom:16px;width:var(--drawer-w);z-index:10;
+  display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 26px 60px -22px rgba(15,23,42,.5);
+  transform:translateX(calc(100% + 40px));visibility:hidden;
+  transition:transform .28s ease,visibility 0s linear .28s;
+}
+body.is-open .drawer{transform:none;visibility:visible;transition:transform .28s ease}
+.drawer-head{display:flex;align-items:center;gap:10px;padding:18px 18px 0 22px}
+.chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent);padding:5px 10px;border-radius:999px}
+.pos{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;display:grid;place-items:center;font-size:18px;line-height:1}
+.icon-btn:hover{background:var(--bg)}
+.icon-btn:focus-visible,.nav-btn:focus-visible,.rel-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drawer-body{flex:1;overflow:auto;padding:12px 22px 18px}
+.drawer h2{font-size:23px;line-height:1.2;margin:4px 0 12px;font-weight:700;text-wrap:balance;outline:none}
+.lead{font-size:15.5px;line-height:1.5;margin:0 0 6px}
+.quote{margin:0 0 6px;padding:12px 14px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:0 10px 10px 0;font-size:15px;line-height:1.5}
+.sec h3,.rel h3{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px;font-weight:700}
+.sec ul{margin:0;padding-left:1.15em}
+.sec li{font-size:14.5px;line-height:1.5;margin:5px 0}
+.sec li::marker{color:var(--accent)}
+.rel-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rel-chip{font:inherit;font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.rel-chip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.rel-chip:hover{border-color:var(--accent)}
+.drawer-foot{display:flex;justify-content:space-between;gap:10px;padding:12px 18px 16px;border-top:1px solid var(--border)}
+.nav-btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+.nav-btn:hover{background:var(--bg)}
+.nav-btn:disabled{opacity:.35;cursor:default}
+
+.hint{position:fixed;left:0;right:0;bottom:7px;text-align:center;font-size:12px;color:var(--muted);pointer-events:none;transition:opacity .3s}
+.hint kbd{font:inherit;font-size:11px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;background:var(--surface)}
+body.seen .hint{opacity:0}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* ---------- Pantallas angostas: lista vertical con scroll ---------- */
+@media (max-width:879px){
+  body{overflow:auto}
+  .stage{position:static;padding:16px 16px 40px}
+  body.is-open .stage{padding-right:16px}
+  .wrap{height:auto;container-type:normal}
+  .diagram{display:flex;flex-direction:column;gap:10px;height:auto;font-size:15px}
+  .band,.wires{display:none}
+  .band-label{writing-mode:horizontal-tb;transform:none;align-self:flex-start;margin:18px 0 2px;font-size:11px}
+  .cell{margin:0}
+  .block{container-type:normal;min-height:72px}
+  .group{padding-top:2.1em}
+  .group.grid2{grid-template-columns:1fr;grid-template-rows:none}
+  .viz{display:none}
+  .drawer{top:auto;left:10px;right:10px;bottom:10px;width:auto;max-height:82vh;transform:translateY(calc(100% + 30px))}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="wrap">
+    <main class="diagram" id="diagram" aria-label="Mapa de la investigación sobre dengue en La Libertad">
+      <div class="band band-1" aria-hidden="true"></div>
+      <div class="band band-2" aria-hidden="true"></div>
+      <div class="band band-3" aria-hidden="true"></div>
+      <svg class="wires" id="wires" aria-hidden="true"></svg>
+
+      <div class="band-label bl-1">01<b>Planteamiento</b></div>
+      <button class="block cell p-area cat-contexto" data-id="area">
+        <span class="eyebrow">Área de estudio</span>
+        <span class="title">Epidemiología espacial</span>
+        <span class="sub">Estadística espacio-temporal en salud pública</span>
+      </button>
+      <button class="block cell p-problema cat-problema" data-id="problema">
+        <span class="eyebrow">Problema</span>
+        <span class="title">Dengue sin enfoque de red</span>
+        <span class="sub">La vigilancia mira cada distrito por separado</span>
+      </button>
+      <button class="block cell p-pregunta cat-pregunta key" data-id="pregunta">
+        <span class="eyebrow">Pregunta clave</span>
+        <span class="title">¿En qué medida la vulnerabilidad predice el dengue?</span>
+        <span class="sub">Por distrito y semana · La Libertad 2020–2025</span>
+      </button>
+      <button class="block cell p-tema cat-tema" data-id="tema">
+        <span class="eyebrow">Tema de investigación</span>
+        <span class="title">Vulnerabilidad territorial y dengue semanal</span>
+        <span class="sub">Hacia una alerta temprana basada en GNN</span>
+      </button>
+
+      <div class="band-label bl-2">02<b>Variables y modelo</b></div>
+      <div class="group cell p-gcomp cat-vi" data-id="g-comp">
+        <span class="group-label">Componentes</span>
+        <button class="block cat-vi" data-id="conectividad">
+          <span class="eyebrow">Exposición</span>
+          <span class="title">Conectividad territorial</span>
+          <span class="sub">INEI · MTC</span>
+        </button>
+        <button class="block cat-vi" data-id="estres">
+          <span class="eyebrow">Sensibilidad</span>
+          <span class="title">Estrés hídrico urbano</span>
+          <span class="sub">ANA · INEI · SENAMHI</span>
+        </button>
+        <button class="block cat-vi" data-id="retraso">
+          <span class="eyebrow">Respuesta</span>
+          <span class="title">Retraso de notificación</span>
+          <span class="sub">CDC-MINSA · DGE · DIRESA</span>
+        </button>
+      </div>
+      <button class="block cell tall p-vi cat-vi key" data-id="vi">
+        <span class="eyebrow">Variable independiente</span>
+        <span class="title">Vulnerabilidad estructural territorial</span>
+        <span class="sub">Con qué predigo</span>
+        <span class="viz viz-tags"><span>Exposición</span><span>Sensibilidad</span><span>Respuesta</span></span>
+      </button>
+      <button class="block cell tall p-gnn cat-modelo key" data-id="gnn">
+        <span class="eyebrow">Técnica · Modelo</span>
+        <span class="title">Red neuronal gráfica (GNN)</span>
+        <span class="sub">Aprende del espacio y del tiempo</span>
+        <span class="viz"><svg viewBox="0 0 130 46" preserveAspectRatio="xMinYMid meet">
+          <line class="e" x1="10" y1="24" x2="40" y2="9"/><line class="e" x1="10" y1="24" x2="44" y2="37"/>
+          <line class="e" x1="40" y1="9" x2="74" y2="22"/><line class="e" x1="44" y1="37" x2="74" y2="22"/>
+          <line class="e" x1="74" y1="22" x2="106" y2="9"/><line class="e" x1="74" y1="22" x2="112" y2="36"/>
+          <line class="e" x1="106" y1="9" x2="112" y2="36"/>
+          <circle class="n" cx="10" cy="24" r="5"/><circle class="n" cx="40" cy="9" r="5"/>
+          <circle class="n" cx="44" cy="37" r="5"/><circle class="n hot" cx="74" cy="22" r="6"/>
+          <circle class="n" cx="106" cy="9" r="5"/><circle class="n" cx="112" cy="36" r="5"/>
+        </svg></span>
+      </button>
+      <button class="block cell tall p-vd cat-vd key" data-id="vd">
+        <span class="eyebrow">Variable dependiente</span>
+        <span class="title">Incidencia semanal del dengue</span>
+        <span class="sub">Qué predigo · casos por distrito y semana</span>
+        <span class="viz"><svg viewBox="0 0 130 46" preserveAspectRatio="xMinYMid meet">
+          <rect class="bar" x="2" y="40" width="6" height="6"/><rect class="bar" x="11" y="38" width="6" height="8"/>
+          <rect class="bar" x="20" y="35" width="6" height="11"/><rect class="bar" x="29" y="30" width="6" height="16"/>
+          <rect class="bar" x="38" y="22" width="6" height="24"/><rect class="bar" x="47" y="12" width="6" height="34"/>
+          <rect class="bar" x="56" y="4" width="6" height="42"/><rect class="bar" x="65" y="8" width="6" height="38"/>
+          <rect class="bar" x="74" y="17" width="6" height="29"/><rect class="bar" x="83" y="26" width="6" height="20"/>
+          <rect class="bar" x="92" y="32" width="6" height="14"/><rect class="bar" x="101" y="36" width="6" height="10"/>
+          <rect class="bar" x="110" y="39" width="6" height="7"/><rect class="bar" x="119" y="41" width="6" height="5"/>
+        </svg></span>
+      </button>
+
+      <div class="band-label bl-3">03<b>Objetivos y resultado</b></div>
+      <button class="block cell p-objgen cat-objetivo key" data-id="objgen">
+        <span class="eyebrow">Objetivo general</span>
+        <span class="title">Evaluar el aporte de la vulnerabilidad</span>
+        <span class="sub">A la predicción semanal del dengue, con una GNN espacio-temporal</span>
+      </button>
+      <div class="group cell grid2 p-goe cat-objetivo" data-id="g-oe">
+        <span class="group-label">Objetivos específicos</span>
+        <button class="block cat-objetivo" data-id="oe1">
+          <span class="eyebrow">OE1</span>
+          <span class="title">Precisión predictiva</span>
+          <span class="sub">GNN vs. Binomial Negativa y CAR/SAR</span>
+        </button>
+        <button class="block cat-objetivo" data-id="oe2">
+          <span class="eyebrow">OE2</span>
+          <span class="title">Aporte de cada componente</span>
+          <span class="sub">Estudios de ablación</span>
+        </button>
+        <button class="block cat-objetivo" data-id="oe3">
+          <span class="eyebrow">OE3</span>
+          <span class="title">Interpretación del modelo</span>
+          <span class="sub">Atención GAT · SHAP · efectos marginales</span>
+        </button>
+        <button class="block cat-objetivo" data-id="oe4">
+          <span class="eyebrow">OE4</span>
+          <span class="title">Prototipo de alerta</span>
+          <span class="sub">Clasificación de riesgo por distrito</span>
+        </button>
+      </div>
+      <button class="block cell tall p-alerta cat-resultado key" data-id="alerta">
+        <span class="eyebrow">Resultado esperado</span>
+        <span class="title">Sistema de alerta temprana</span>
+        <span class="sub">Riesgo de dengue por distrito</span>
+        <span class="viz viz-risk"><span class="r1">Bajo</span><span class="r2">Medio</span><span class="r3">Alto</span></span>
+      </button>
+    </main>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="d-title">
+  <div class="drawer-head">
+    <span class="chip" id="d-chip"></span>
+    <span class="pos" id="d-pos"></span>
+    <button class="icon-btn" id="d-close" aria-label="Cerrar resumen">×</button>
+  </div>
+  <div class="drawer-body" id="d-body"></div>
+  <div class="drawer-foot">
+    <button class="nav-btn" id="d-prev">← Anterior</button>
+    <button class="nav-btn" id="d-next">Siguiente →</button>
+  </div>
+</aside>
+
+<div class="hint">Haz clic en un bloque para ver su resumen · <kbd>←</kbd> <kbd>→</kbd> para recorrerlos · <kbd>Esc</kbd> para cerrar</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Contenido de cada bloque ---------- */
+  const B = {
+    area:{cat:"contexto",chip:"Área de estudio",short:"Área de estudio",title:"Epidemiología espacial",
+      lead:"Estudia cómo se distribuyen y se propagan las enfermedades en el territorio y a lo largo del tiempo.",
+      secs:[
+        ["Enfoque",["Analiza datos por distrito y por semana: dónde aparecen los casos y cómo cambian.","Combina estadística espacial, series de tiempo y aprendizaje automático."]],
+        ["En esta investigación",["Se aplica a la vigilancia del dengue en los distritos de La Libertad, Perú.","El dengue no respeta límites: viaja con las personas y depende de las condiciones de cada lugar."]]
+      ],rel:["problema"]},
+    problema:{cat:"problema",chip:"Problema",short:"Problema",title:"Dengue sin enfoque de red",
+      lead:"Hoy nadie mide de forma conjunta qué tan vulnerable es un distrito para anticipar un brote.",
+      secs:[
+        ["Contexto",["El dengue atraviesa una de sus peores crisis en el Perú (2025–2026: +50 % de casos).","La Libertad reúne tres condiciones de riesgo: clima cálido, almacenamiento doméstico de agua por escasez (atrae al mosquito) e intensa movilidad entre distritos."]],
+        ["La brecha",["Los sistemas de vigilancia actuales analizan cada distrito y su distancia a las zonas infectadas de forma independiente.","No consideran el almacenamiento de agua ni la movilidad de personas: no hay un enfoque conjunto de red territorial.","Tampoco consideran cuánto tarda el sistema de salud en enterarse de un caso."]],
+        ["En síntesis",["Almacenamiento de agua, movilidad y demora en la notificación determinan qué tan vulnerable es un distrito."]]
+      ],rel:["area","pregunta","conectividad","estres","retraso"]},
+    pregunta:{cat:"pregunta",chip:"Pregunta clave",short:"Pregunta clave",title:"¿En qué medida la vulnerabilidad predice el dengue?",
+      quote:"¿En qué medida la vulnerabilidad estructural territorial de un distrito contribuye a predecir cuántos casos de dengue tendrá esa zona cada semana, en La Libertad, entre 2020 y 2025?",
+      secs:[
+        ["La pregunta fija dos cosas",["Con qué predigo → la vulnerabilidad estructural territorial y sus tres componentes (variable independiente).","Qué predigo → el número de casos de dengue por semana y por distrito (variable dependiente)."]]
+      ],rel:["problema","tema","vi","vd"]},
+    tema:{cat:"tema",chip:"Tema de investigación",short:"Tema",title:"Vulnerabilidad territorial y dengue semanal",
+      quote:"Contribución de la vulnerabilidad estructural territorial a la predicción de la incidencia semanal del dengue en los distritos de La Libertad, Perú, 2020–2025: hacia un sistema de alerta temprana basado en GNN.",
+      secs:[
+        ["El tema en partes",["Qué: el aporte de la vulnerabilidad estructural territorial.","A qué: a predecir la incidencia semanal del dengue.","Dónde y cuándo: distritos de La Libertad, 2020–2025.","Cómo y para qué: con una GNN, como base de una alerta temprana."]]
+      ],rel:["pregunta","objgen"]},
+    conectividad:{cat:"vi",chip:"Componente 1 · Exposición",short:"Conectividad",title:"Conectividad territorial",
+      lead:"Qué tan conectado está un distrito con los demás por transporte y movilidad de personas.",
+      secs:[
+        ["Por qué importa",["Las personas infectadas llevan el virus de un distrito a otro: a más conexión, más exposición."]],
+        ["En el modelo",["Define las conexiones del grafo entre distritos y cuánto pesa cada una."]],
+        ["Fuentes",["INEI: movilidad de personas.","MTC: red vial y de transporte."]]
+      ],rel:["vi","problema","gnn"]},
+    estres:{cat:"vi",chip:"Componente 2 · Sensibilidad",short:"Estrés hídrico",title:"Estrés hídrico urbano",
+      lead:"Qué tanto depende una población de almacenar agua en su vivienda.",
+      secs:[
+        ["Por qué importa",["El agua almacenada en recipientes crea criaderos del mosquito transmisor."]],
+        ["En el modelo",["Es una característica (atributo) de cada distrito."]],
+        ["Fuentes",["ANA: Autoridad Nacional del Agua.","INEI: acceso y almacenamiento de agua.","SENAMHI: clima."]]
+      ],rel:["vi","problema"]},
+    retraso:{cat:"vi",chip:"Componente 3 · Respuesta",short:"Retraso de notificación",title:"Retraso de notificación epidemiológica",
+      lead:"Cuántas semanas tarda el sistema de salud en registrar oficialmente un caso.",
+      secs:[
+        ["Cómo se mide",["Semanas entre el inicio de síntomas y la notificación del caso.","Ambas fechas están en la Ficha de Investigación Clínico-Epidemiológica de Arbovirosis (SVEA/NotiSP) del MINSA."]],
+        ["Por qué importa",["Si el sistema se entera tarde, el brote avanza sin respuesta."]],
+        ["En el modelo",["Es una característica de cada distrito: su capacidad de respuesta."]],
+        ["Fuentes",["CDC-MINSA, DGE y DIRESA La Libertad."]]
+      ],rel:["vi","problema"]},
+    vi:{cat:"vi",chip:"Variable independiente",short:"Vulnerabilidad (VI)",title:"Vulnerabilidad estructural territorial",
+      lead:"Qué tan vulnerable es un distrito frente al dengue por su estructura territorial. Es lo que uso para predecir.",
+      secs:[
+        ["Se compone de",["Conectividad territorial → exposición a la propagación.","Estrés hídrico urbano → sensibilidad local (criaderos).","Retraso de notificación → capacidad de respuesta del sistema de salud."]],
+        ["Lo nuevo",["Las tres dimensiones se miden de forma conjunta, como una red territorial, y no por separado."]]
+      ],rel:["conectividad","estres","retraso","pregunta","gnn"]},
+    gnn:{cat:"modelo",chip:"Técnica · Modelo",short:"Modelo GNN",title:"Red neuronal gráfica espacio-temporal (GNN)",
+      lead:"Un modelo que aprende sobre una red conectada, usando sus conexiones y las características de cada punto.",
+      secs:[
+        ["Cómo lo aplico",["Cada distrito de La Libertad es un nodo.","Las conexiones entre distritos pesan según la movilidad.","El estrés hídrico y el retraso de notificación son características de cada distrito.","Con atención (GAT), aprende qué vecinos influyen más."]],
+        ["Idea clave",["Si un distrito vecino tiene muchos casos y está muy conectado con otro, el modelo entiende que ese segundo distrito también corre riesgo, como en un contagio real."]],
+        ["Espacio + tiempo",["Recuerda lo que pasó en semanas anteriores: mira los distritos conectados y la evolución semana a semana."]],
+        ["Se compara con",["Panel Binomial Negativa.","Autorregresión espacial CAR/SAR."]]
+      ],rel:["vi","vd","oe1","oe2","oe3"]},
+    vd:{cat:"vd",chip:"Variable dependiente",short:"Incidencia (VD)",title:"Incidencia semanal del dengue",
+      lead:"El número de casos confirmados o probables de dengue por distrito, cada semana. Es lo que quiero predecir.",
+      secs:[
+        ["Unidad de análisis",["Distrito × semana epidemiológica, La Libertad, 2020–2025."]],
+        ["Fuente",["Notificación epidemiológica del CDC-MINSA (ficha SVEA/NotiSP)."]],
+        ["Para qué",["Su predicción se traduce en niveles de riesgo para la alerta temprana."]]
+      ],rel:["gnn","pregunta","alerta"]},
+    objgen:{cat:"objetivo",chip:"Objetivo general",short:"Objetivo general",title:"Evaluar el aporte de la vulnerabilidad",
+      quote:"Evaluar la contribución de la vulnerabilidad estructural territorial a la predicción de la incidencia semanal del dengue en los distritos de La Libertad, Perú (2020–2025), mediante un modelo de red neuronal gráfica espacio-temporal (GNN), como base para un sistema de alerta temprana.",
+      secs:[
+        ["Se logra con",["OE1 · Precisión predictiva","OE2 · Aporte de cada componente","OE3 · Interpretación del modelo","OE4 · Prototipo de alerta temprana"]]
+      ],rel:["tema","oe1","oe2","oe3","oe4"]},
+    oe1:{cat:"objetivo",chip:"Objetivo específico 1",short:"OE1",title:"Precisión predictiva",
+      quote:"Evaluar la precisión predictiva del modelo GNN espacio-temporal frente a modelos de referencia (panel Binomial Negativa y autorregresión espacial CAR/SAR).",
+      secs:[
+        ["Responde",["¿La red predice mejor que los modelos estadísticos clásicos?"]],
+        ["Cómo",["Se compara el error de predicción de los tres modelos en semanas que no se usaron para entrenar."]]
+      ],rel:["objgen","gnn"]},
+    oe2:{cat:"objetivo",chip:"Objetivo específico 2",short:"OE2",title:"Aporte de cada componente",
+      quote:"Estimar el aporte individual de cada subdimensión de la vulnerabilidad estructural territorial —conectividad territorial, estrés hídrico urbano y retraso de notificación— sobre la incidencia del dengue, mediante estudios de ablación del grafo y de covariables.",
+      secs:[
+        ["Responde",["¿Cuál de los tres componentes pesa más?"]],
+        ["Cómo",["Se retira un componente (o las conexiones del grafo) y se mide cuánto empeora la predicción."]]
+      ],rel:["objgen","gnn","vi"]},
+    oe3:{cat:"objetivo",chip:"Objetivo específico 3",short:"OE3",title:"Interpretación del modelo",
+      quote:"Interpretar los patrones de propagación y detección del dengue identificados por el modelo, utilizando los pesos de atención de la red gráfica (GAT) y técnicas de explicabilidad (SHAP y efectos marginales).",
+      secs:[
+        ["Responde",["¿Por dónde se propaga el dengue y qué factores lo explican?"]],
+        ["Cómo",["Los pesos de atención muestran qué distritos vecinos influyen más.","SHAP y los efectos marginales muestran cuánto aporta cada variable."]]
+      ],rel:["objgen","gnn"]},
+    oe4:{cat:"objetivo",chip:"Objetivo específico 4",short:"OE4",title:"Prototipo de alerta temprana",
+      quote:"Diseñar un prototipo de sistema de alerta temprana con clasificación de riesgo por distrito, a partir del modelo predictivo validado.",
+      secs:[
+        ["Responde",["¿Cómo convertir la predicción en una herramienta útil para la vigilancia?"]]
+      ],rel:["objgen","alerta"]},
+    alerta:{cat:"resultado",chip:"Resultado esperado",short:"Alerta temprana",title:"Sistema de alerta temprana",
+      lead:"La predicción semanal se convierte en niveles de riesgo para cada distrito.",
+      secs:[
+        ["Para qué sirve",["Anticipar brotes antes de que se extiendan.","Priorizar la vigilancia y el control vectorial donde el riesgo es real."]],
+        ["Cómo se construye",["Con el modelo GNN validado (OE1–OE3) y el diseño del prototipo (OE4)."]]
+      ],rel:["vd","oe4"]}
+  };
+  const ORDER = ["area","problema","pregunta","tema","conectividad","estres","retraso","vi","gnn","vd","objgen","oe1","oe2","oe3","oe4","alerta"];
+  const GROUPS = {"g-comp":["conectividad","estres","retraso"],"g-oe":["oe1","oe2","oe3","oe4"]};
+
+  /* ---------- Conexiones ---------- */
+  const WIRES = [
+    {from:"area",to:"problema",kind:"h"},
+    {from:"problema",to:"pregunta",kind:"h"},
+    {from:"pregunta",to:"tema",kind:"h"},
+    {from:"pregunta",to:"vi",kind:"fork",label:"con qué predigo",dashed:true},
+    {from:"pregunta",to:"vd",kind:"fork",label:"qué predigo",dashed:true},
+    {from:"problema",to:"g-comp",kind:"elbow",label:"3 factores",dashed:true},
+    {from:"conectividad",to:"vi",kind:"h"},
+    {from:"estres",to:"vi",kind:"h"},
+    {from:"retraso",to:"vi",kind:"h"},
+    {from:"vi",to:"gnn",kind:"h"},
+    {from:"gnn",to:"vd",kind:"h"},
+    {from:"vd",to:"alerta",kind:"v",label:"riesgo por distrito"},
+    {from:"objgen",to:"g-oe",kind:"h"},
+    {from:"oe4",to:"alerta",kind:"h"}
+  ];
+
+  const diagram = document.getElementById("diagram");
+  const svg = document.getElementById("wires");
+  const NS = "http://www.w3.org/2000/svg";
+  const node = id => diagram.querySelector('[data-id="'+id+'"]');
+  let current = null, lastTrigger = null;
+
+  function rect(id){
+    const b = diagram.getBoundingClientRect(), r = node(id).getBoundingClientRect();
+    const l = r.left-b.left, t = r.top-b.top;
+    return {l, t, r:l+r.width, b:t+r.height, w:r.width, h:r.height, cx:l+r.width/2, cy:t+r.height/2};
+  }
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+  function roundedPath(pts, rad){
+    let d = "M"+pts[0][0]+","+pts[0][1];
+    for(let i=1;i<pts.length-1;i++){
+      const [px,py]=pts[i-1],[x,y]=pts[i],[nx,ny]=pts[i+1];
+      const d1=Math.hypot(x-px,y-py), d2=Math.hypot(nx-x,ny-y);
+      const r=Math.min(rad,d1/2,d2/2);
+      const ax=x-(x-px)/d1*r, ay=y-(y-py)/d1*r, bx=x+(nx-x)/d2*r, by=y+(ny-y)/d2*r;
+      d+=" L"+ax+","+ay+" Q"+x+","+y+" "+bx+","+by;
+    }
+    const last=pts[pts.length-1];
+    return d+" L"+last[0]+","+last[1];
+  }
+
+  function connected(w, id){
+    if(!id) return false;
+    if(w.from===id || w.to===id) return true;
+    return (GROUPS[w.from]||[]).includes(id) || (GROUPS[w.to]||[]).includes(id);
+  }
+
+  // Si un bloque no alcanza a mostrar todo su texto, oculta primero el visual, luego el subtítulo y por último la etiqueta.
+  function fit(){
+    diagram.querySelectorAll(".block").forEach(el=>{
+      el.classList.remove("fit-1","fit-2","fit-3");
+      if(getComputedStyle(el).containerType!=="size") return;
+      for(let lvl=1; lvl<=3 && el.scrollHeight>el.clientHeight+1; lvl++) el.classList.add("fit-"+lvl);
+    });
+  }
+
+  function draw(){
+    fit();
+    if(getComputedStyle(svg).display==="none") return;
+    const box = diagram.getBoundingClientRect();
+    svg.setAttribute("viewBox","0 0 "+box.width+" "+box.height);
+    svg.textContent="";
+    const fs = parseFloat(getComputedStyle(diagram).fontSize);
+    const labelSize = Math.max(11, fs*.8);
+    const head = Math.max(7, fs*.62);
+
+    WIRES.forEach(w=>{
+      const a = rect(w.from), b = rect(w.to);
+      let pts, lp = null, anchor = "middle";
+      if(w.kind==="h"){
+        const y = clamp(a.cy, b.t+10, b.b-10);
+        pts = [[a.r, y],[b.l, y]];
+      } else if(w.kind==="fork"){
+        const ym = (a.b + b.t)/2;
+        pts = [[a.cx, a.b],[a.cx, ym],[b.cx, ym],[b.cx, b.t]];
+        lp = [(a.cx+b.cx)/2, ym];
+      } else if(w.kind==="elbow"){
+        const sx = a.l + a.w*.2, ym = (a.b + b.t)/2;
+        pts = [[sx, a.b],[sx, ym],[b.cx, ym],[b.cx, b.t]];
+        lp = [(sx+b.cx)/2, ym];
+      } else {
+        const x = a.cx;
+        pts = [[x, a.b],[x, b.t]];
+        lp = [x + 10, (a.b+b.t)/2]; anchor = "start";
+      }
+      // punta de flecha
+      const n = pts.length, tip = pts[n-1], prev = pts[n-2];
+      const len = Math.hypot(tip[0]-prev[0], tip[1]-prev[1]) || 1;
+      const ux = (tip[0]-prev[0])/len, uy = (tip[1]-prev[1])/len;
+      const end = [tip[0]-ux*head*.8, tip[1]-uy*head*.8];
+      const linePts = pts.slice(0, n-1).concat([end]);
+      const g = document.createElementNS(NS,"g");
+      g.setAttribute("class","wire"+(w.dashed?" dashed":"")+(connected(w,current)?" hi":""));
+      const p = document.createElementNS(NS,"path");
+      p.setAttribute("class","line"); p.setAttribute("d", roundedPath(linePts, 12));
+      g.appendChild(p);
+      const h = document.createElementNS(NS,"path");
+      const bx = tip[0]-ux*head, by = tip[1]-uy*head, px = -uy*head*.55, py = ux*head*.55;
+      h.setAttribute("class","head");
+      h.setAttribute("d","M"+tip[0]+","+tip[1]+" L"+(bx+px)+","+(by+py)+" L"+(bx-px)+","+(by-py)+" Z");
+      g.appendChild(h);
+      if(w.label && lp){
+        const lg = document.createElementNS(NS,"g"); lg.setAttribute("class","lbl");
+        const r = document.createElementNS(NS,"rect");
+        const t = document.createElementNS(NS,"text");
+        t.textContent = w.label; t.setAttribute("font-size", labelSize);
+        t.setAttribute("text-anchor", anchor); t.setAttribute("dominant-baseline","central");
+        t.setAttribute("x", lp[0]); t.setAttribute("y", lp[1]);
+        lg.appendChild(r); lg.appendChild(t); g.appendChild(lg); svg.appendChild(g);
+        const tw = t.getComputedTextLength(), padX = 7, hh = labelSize*1.5;
+        const rx = anchor==="start" ? lp[0]-padX : lp[0]-tw/2-padX;
+        r.setAttribute("x", rx); r.setAttribute("y", lp[1]-hh/2);
+        r.setAttribute("width", tw+padX*2); r.setAttribute("height", hh); r.setAttribute("rx", hh/2);
+      } else {
+        svg.appendChild(g);
+      }
+    });
+    if(current){
+      svg.style.setProperty("--hi", getComputedStyle(node(current)).getPropertyValue("--accent").trim());
+    }
+  }
+
+  /* ---------- Panel ---------- */
+  const drawer = document.getElementById("drawer");
+  const dBody = document.getElementById("d-body"), dChip = document.getElementById("d-chip"), dPos = document.getElementById("d-pos");
+  const prevBtn = document.getElementById("d-prev"), nextBtn = document.getElementById("d-next");
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  function open(id, focusPanel){
+    const d = B[id]; if(!d) return;
+    current = id;
+    document.body.classList.add("is-open","seen");
+    const rel = new Set([id].concat(d.rel));
+    diagram.querySelectorAll(".block").forEach(el=>{
+      const bid = el.dataset.id;
+      el.classList.toggle("is-sel", bid===id);
+      el.classList.toggle("is-rel", bid!==id && rel.has(bid));
+    });
+    drawer.className = "drawer cat-"+d.cat;
+    dChip.textContent = d.chip;
+    const i = ORDER.indexOf(id);
+    dPos.textContent = (i+1)+" / "+ORDER.length;
+    let html = '<h2 id="d-title" tabindex="-1">'+esc(d.title)+'</h2>';
+    if(d.lead) html += '<p class="lead">'+esc(d.lead)+'</p>';
+    if(d.quote) html += '<p class="quote">'+esc(d.quote)+'</p>';
+    d.secs.forEach(([h, items])=>{
+      html += '<section class="sec"><h3>'+esc(h)+'</h3><ul>'+items.map(t=>'<li>'+esc(t)+'</li>').join("")+'</ul></section>';
+    });
+    html += '<section class="rel"><h3>Conectado con</h3><div class="rel-chips">'+
+      d.rel.map(r=>'<button class="rel-chip cat-'+B[r].cat+'" data-go="'+r+'">'+esc(B[r].short)+'</button>').join("")+'</div></section>';
+    dBody.innerHTML = html; dBody.scrollTop = 0;
+    prevBtn.disabled = i===0; nextBtn.disabled = i===ORDER.length-1;
+    try{ history.replaceState(null,"","#"+id); }catch(e){}
+    draw();
+    if(focusPanel) document.getElementById("d-title").focus({preventScroll:true});
+  }
+  function close(){
+    if(!current) return;
+    const back = node(current);
+    current = null;
+    document.body.classList.remove("is-open");
+    diagram.querySelectorAll(".block").forEach(el=>el.classList.remove("is-sel","is-rel"));
+    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    draw();
+    if(back) back.focus({preventScroll:true});
+  }
+  function step(dir){
+    const i = current ? ORDER.indexOf(current) : -1;
+    const j = clamp(i+dir, 0, ORDER.length-1);
+    if(j!==i) open(ORDER[j], true);
+  }
+
+  diagram.addEventListener("click", e=>{
+    const el = e.target.closest(".block");
+    if(el){ open(el.dataset.id, false); }
+    else close();
+  });
+  dBody.addEventListener("click", e=>{
+    const c = e.target.closest("[data-go]");
+    if(c) open(c.dataset.go, true);
+  });
+  document.getElementById("d-close").addEventListener("click", close);
+  prevBtn.addEventListener("click", ()=>step(-1));
+  nextBtn.addEventListener("click", ()=>step(1));
+  document.addEventListener("keydown", e=>{
+    if(e.key==="Escape") close();
+    else if(e.key==="ArrowRight"){ e.preventDefault(); step(1); }
+    else if(e.key==="ArrowLeft"){ e.preventDefault(); if(current) step(-1); }
+  });
+
+  new ResizeObserver(draw).observe(diagram);
+  window.addEventListener("load", draw);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  const start = decodeURIComponent(location.hash.slice(1));
+  if(B[start]) open(start, false); else draw();
+})();
+</script>
+</body>
+</html>
